@@ -1,0 +1,181 @@
+USE LittleLemonDB;
+
+
+INSERT INTO customers (Name, ContactNumber)
+VALUES
+('Laney Fadden', 12345),
+('Giacopo Bramich', 54321),
+('Lia Bonar', 12123);
+
+
+-- TASK
+-- Little Lemon wants to populate the Bookings table of their database with some records of data. 
+-- Your first task is to replicate the list of records in the following table by adding them to the Little Lemon booking table. 
+INSERT INTO bookings (TableNo, BookingDate, CustomerID)
+VALUES
+(5, '2022-10-10', 1),
+(3, '2022-11-12', 3),
+(2, '2022-10-11', 2),
+(2, '2022-10-13', 1),
+(5, '2022-12-10', 1),
+(3, '2022-12-12', 3),
+(2, '2022-12-11', 2),
+(2, '2022-12-13', 1);
+
+INSERT INTO cuisines (CuisineID, CuisineName)
+VALUES
+(1, 'Greek'),
+(2, 'Italian'),
+(3, 'Turkish');
+
+INSERT INTO menus (CourseName, StarterName, DessertName, CuisineID)
+VALUES
+('Greek salad', 'Olives', 'Greek yoghurt', 1),
+('Bean soup', 'Flatbread', 'Ice cream', 2),
+('Pizza', 'Minestrone', 'Cheesecake', 2),
+('Carbonara', 'Tomato bread', 'Affogato', 3),
+('Kabasa', 'Falafel', 'Turkish yoghurt', 1),
+('Shwarma', 'Hummus', 'Baklava', 2),
+('Greek salad', 'Olives', 'Greek yoghurt', 2),
+('Bean soup', 'Flatbread', 'Ice cream', 3),
+('Pizza', 'Minestrone', 'Cheesecake', 1),
+('Carbonara', 'Tomato bread', 'Affogato', 2);
+
+INSERT INTO orders (Quantity, TotalCost, BookingID, MenuID)
+VALUES
+(2, 100, 1, 3),
+(4, 200, 2, 5),
+(10, 500, 3, 1),
+(5, 125, 4, 9),
+(1, 50, 5, 3),
+(5, 250, 6, 1),
+(1, 25, 7, 1),
+(2, 75, 8, 3);
+
+
+CREATE OR REPLACE VIEW OrdersView AS (
+	SELECT OrderID, Quantity, TotalCost
+    FROM orders
+    WHERE Quantity > 2
+);
+Select * from OrdersView;
+
+
+SELECT C.CustomerID, C.Name, O.OrderID, O.TotalCost, cuisines.CuisineName, M.CourseName
+FROM orders as O
+INNER JOIN menus AS M ON O.MenuID = M.MenuID
+INNER JOIN cuisines ON M.CuisineID = cuisines.CuisineID
+INNER JOIN bookings AS B ON O.OrderID = B.BookingID
+INNER JOIN customers AS C ON C.CustomerID = B.CustomerID
+WHERE O.TotalCost > 150;
+
+
+SELECT CourseName 
+FROM menus
+WHERE MenuID = ANY(SELECT MenuID FROM orders GROUP BY MenuID HAVING COUNT(*) > 2);
+
+DROP PROCEDURE IF EXISTS GetMaxQuantity;
+CREATE PROCEDURE GetMaxQuantity()
+	SELECT MAX(Quantity) AS 'Max quantity in orders' FROM orders;
+CALL GetMaxQuantity();
+
+
+PREPARE GetOrderDetail FROM 'SELECT OrderID, Quantity, TotalCost FROM orders WHERE OrderID = ?';
+SET @id = 1;
+EXECUTE GetOrderDetail USING @id;
+
+
+DROP PROCEDURE IF EXISTS CancelOrder;
+DELIMITER //
+CREATE PROCEDURE CancelOrder(id INT)
+	BEGIN
+		DELETE FROM orders WHERE OrderID = id;
+        SELECT CONCAT("Order ", id, " is canceled") AS Confirmation;
+	END //
+DELIMITER ;    
+CALL CancelOrder(2);
+
+
+-- Task
+-- For your second task, Little Lemon need you to create a stored procedure 
+-- called CheckBooking to check whether a table in the restaurant is already booked. 
+-- Creating this procedure helps to minimize the effort involved in repeatedly coding the same SQL statements.
+-- The procedure should have two input parameters in the form of booking date and table number. 
+-- You can also create a variable in the procedure to check the status of each table.
+DROP PROCEDURE IF EXISTS CheckBooking;
+DELIMITER //
+CREATE PROCEDURE CheckBooking(bd DATE, tn INT)
+	BEGIN
+     IF((SELECT COUNT(*) FROM bookings WHERE BookingDate = bd AND TableNo = tn) > 0) THEN
+         SELECT CONCAT("Table ", tn, " is booked") AS 'Booking Stats';
+      ELSE
+         SELECT CONCAT("Table ", tn, " is free") AS 'Booking Stats';
+      END IF;
+	END //
+DELIMITER ;    
+CALL CheckBooking('2022-10-10', 5);
+
+
+DROP PROCEDURE IF EXISTS CheckBooking;
+DELIMITER //
+CREATE PROCEDURE CheckBooking(bd DATE, tn INT)
+	BEGIN
+     IF((SELECT COUNT(*) FROM bookings WHERE BookingDate = bd AND TableNo = tn) > 0) THEN
+         SELECT CONCAT("Table ", tn, " is booked") AS 'Booking Stats';
+      ELSE
+         SELECT CONCAT("Table ", tn, " is free") AS 'Booking Stats';
+      END IF;
+	END //
+DELIMITER ;    
+CALL CheckBooking('2022-10-10', 5);
+
+
+
+
+-- Task
+-- In this first task you need to create a new procedure called AddBooking to add a new table booking record.
+-- The procedure should include four input parameters in the form of the following bookings parameters:
+-- booking id, 
+-- customer id, 
+-- booking date,
+-- and table number.
+DROP PROCEDURE IF EXISTS AddBooking;
+DELIMITER //
+CREATE PROCEDURE AddBooking(tn INT, bd DATE, id INT)
+	BEGIN
+		INSERT INTO bookings (TableNo, BookingDate, CustomerID) VALUES (tn, bd, id);
+        SELECT 'New Booking Added' AS Confirmation;
+	END //
+DELIMITER ;    
+CALL AddBooking(1, '2023-1-1', 2);
+
+
+-- Task
+-- For your second task, Little Lemon need you to create a new procedure called UpdateBooking that 
+-- they can use to update existing bookings in the booking table.
+-- The procedure should have two input parameters in the form of booking id and booking date. 
+-- You must also include an UPDATE statement inside the procedure. 
+DROP PROCEDURE IF EXISTS UpdateBooking;
+DELIMITER //
+CREATE PROCEDURE UpdateBooking(id INT, bd DATE)
+	BEGIN
+		UPDATE bookings SET BookingDate = bd WHERE BookingID = id;
+        SELECT CONCAT("Booking ", id, " updated") AS Confirmation;
+	END //
+DELIMITER ;    
+CALL UpdateBooking(1, '2023-1-1');
+
+
+-- Task
+-- For the third and final task, Little Lemon need you to create a new procedure called CancelBooking 
+-- that they can use to cancel or remove a booking.
+-- The procedure should have one input parameter in the form of booking id. You must also write a DELETE statement inside the procedure. 
+DROP PROCEDURE IF EXISTS CancelBooking;
+DELIMITER //
+CREATE PROCEDURE CancelBooking(id INT)
+	BEGIN
+		DELETE FROM bookings WHERE BookingID = id;
+        SELECT CONCAT("Booking ", id, " is canceled") AS Confirmation;
+	END //
+DELIMITER ;    
+CALL CancelBooking(1);
